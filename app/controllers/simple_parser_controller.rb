@@ -1,3 +1,5 @@
+# Written by I. Urvanov in the name of Sir Walter Scott
+
 class SimpleParserController < ApplicationController
   # level information
   def index
@@ -7,8 +9,7 @@ class SimpleParserController < ApplicationController
   def search
     param_str = params[:params];
     param_obj = JSON.parse(param_str);
- #   get_model_info('Acer', 'Liquid X2')
-    puts 'i am here'
+
     res = case param_obj['mode'];
 
       when 'get_brands'
@@ -17,6 +18,9 @@ class SimpleParserController < ApplicationController
         then get_object_list(get_level_config ,[{'name'=> param_obj['brand']}, {}])
       when 'get_model_info'
         then get_model_info(param_obj['brand'], param_obj['model'])
+      when 'search_by_query'
+        then get_object_list_by_query(param_obj['query'])
+        
     else
     {}
     end
@@ -28,6 +32,29 @@ class SimpleParserController < ApplicationController
   require 'nokogiri';
 
   private
+
+  def get_object_list_by_query(query)
+
+    query = query.to_s.downcase;
+    words = query.split(/\s+/);
+    brands = get_object_list(get_level_config, [{}]);
+
+    matched_brands = brands.find_all{|brand| words.include?(brand['name'].downcase)};
+    matched_brands = brands if matched_brands.empty?
+    matched_models_total = [];
+    brand_match_total = [];
+    matched_brands.map do |brand|
+
+      brand_models = get_object_list(get_level_config, [{'name'=>brand['name']}, {}])
+      brand_models.map!{|x| x['brand'] = brand['name'];x['words'] = 0; x;}
+      brand_match_total += brand_models
+      matched_models = brand_models.map{|model| model['words'] = (words & model['name'].downcase.split(/\s+/)).size; model}.find_all{|model| model['words'] > 0};
+       matched_models.map{|x| x['brand'] = brand['name']}
+      matched_models_total += matched_models;
+    end
+    matched_models_total.sort_by{|model| -model['words']} + brand_match_total;
+  end
+
 
   def get_level_config
     level_config = {:main_path => 'http://www.gsmarena.com/',
@@ -43,50 +70,60 @@ class SimpleParserController < ApplicationController
           :object_link => '@href'
         }
 
-      ]
+      ],
+      :object_info=>{
+        :container => '#specs-list > table',
+        :group_name=> './/th',
+        :param_name=> './/td[@class="ttl"]',
+        :param_value=>'.//td[@class="nfo"]'
+       } 
     }
     return level_config
   end
 
   def get_model_info(brand, model )
-    puts 'get_model_info starts'
+
     info = get_object_list(get_level_config, [{'name'=>brand}, {'name'=>'model'}])
     model_params = {};
     add_path = info[0]['path']
       doc = Nokogiri::HTML(open(get_level_config[:main_path]+add_path));
-      doc.css('#specs-list > table').each do |list_obj|
+      doc.css(get_level_config[:object_info][:container]).each do |list_obj|
 
-        param_group = list_obj.xpath('.//th').inner_html.to_s;
+        param_group = list_obj.xpath(get_level_config[:object_info][:group_name]).inner_html.to_s;
         model_params[param_group] = [];
-    #    param_name  = list_obj.xpath('.//td[@class="tt//a').inner_text.to_s;
-     #   param_value = list_obj.xpath('.//td[@class="nfo"]').inner_text.to_s;
-      #  model_params[param_group].push({'name'=>param_name, 'value'=>param_value})
+ 
         list_obj.xpath('.//tr').each do |add_list_obj|
-          puts 'Sir Walter Scott'
-           param_name  = add_list_obj.xpath('.//td[@class="ttl"]').inner_text.to_s;
-           param_value = add_list_obj.xpath('.//td[@class="nfo"]').inner_text.to_s;
+     
+           param_name  = add_list_obj.xpath(get_level_config[:object_info][:param_name]).inner_text.to_s;
+           param_value = add_list_obj.xpath(get_level_config[:object_info][:param_value]).inner_text.to_s;
            model_params[param_group].push({'name'=>param_name, 'value'=>param_value})
        
         end
 
       end  
-     puts 'get_model_info ends with ' + model_params.to_s
+
      return {'brand'=>brand, 'model'=>model, 'model_params'=>model_params}
   end
   
   
 
   def get_object_list(level_config, the_way)
-    puts 'get_object_list starts with ' + the_way.to_s
+  
     add_path = ''
     prev_object_list = [];
+    
 
     for i in 0..(the_way.length-1) do
-      puts 'the i is ' + i.to_s
+
       if the_way[i]['name'] == '' 
         return [];
       end
       object_list = [];
+      if i == 0
+        if session[:brands]
+          object_list = session[:brands].clone;
+        end
+      end
       if i > 0
         obj =  prev_object_list.find_all{|x| x['name'] == the_way[i-1]['name']};
         add_path = obj[0]['path']
@@ -99,10 +136,15 @@ class SimpleParserController < ApplicationController
         object_list.push(object_obj);
       end
       prev_object_list = object_list.clone;
+      if (i == 0)&&(!session[:brands])
+        session[:brands] = object_list.clone;
+      end
+
     end #of for
 
-    puts 'get_object_list ends with ' + object_list.to_s
-    return object_list
+
+
+    return object_list.sort_by{|x| x['name'].downcase}.uniq
   end #of function
 
 

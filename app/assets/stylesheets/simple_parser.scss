@@ -2,7 +2,69 @@
 // They will automatically be included in application.css.
 // You can use Sass (SCSS) here: http://sass-lang.com/
 
+body{
+  background-color: #EEEFEE
+}
 
+body, html{height:100vh}
+
+
+.maintable{
+ width:100%;
+ height:100%;
+ border:1px solid blue;
+}
 .maintd{
+
   width:50%;
+  background-color: #EEFFEE;
+
+}
+.maintd_bottom{
+  height:85vh;
+  overflow-y:scroll;
+  
+}
+
+.search_results, .model_info{
+    height:85vh;
+  overflow-y:scroll;
+ 
+}
+
+.tbl_result{
+  width: 100%;
+}
+
+.tr_result{
+  width:100%;
+  
+}
+.tr_result>td:hover{
+  background-color:yellow
+}
+
+.odd_result >td{
+  background-color:#FACDEE
+}
+
+.even_result>td{
+  background-color:#FACDFF
+}
+
+.info_name>td, th{
+   background-color:#EEEEFF;
+}
+
+
+.info_group{
+  background-color:#FBDDCC;
+}
+
+.info_string0 > td{
+   background-color:#FACDEE;
+}
+.info_string1 >td{
+    background-color:#FACDFF;
+  
 }
